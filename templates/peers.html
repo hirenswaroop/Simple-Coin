@@ -1,0 +1,62 @@
+<html>
+	<head>
+		<title>Block</title>
+		<style>
+		.collapsible {
+		  background-color: #777;
+		  color: white;
+		  cursor: pointer;
+		  padding: 18px;
+		  width: 100%;
+		  border: none;
+		  text-align: left;
+		  outline: none;
+		  font-size: 15px;
+		}
+
+		.active, .collapsible:hover {
+		  background-color: #555;
+		}
+
+		.content {
+		  padding: 0 18px;
+		  display: none;
+		  overflow: hidden;
+		  background-color: #f1f1f1;
+		}
+
+		.wrap {
+			word-wrap: break-word;
+		}
+		</style>
+	</head>
+	<body>
+		{% for i in range(length) %}
+			<button class="collapsible"><h2>Peer {{i}}</h2></button>
+			<div class="content">
+				<ul style="list-style-type:none;">
+					<div style="word-break: break-all;">
+						<li><b>Public Key:</b> {{ledger[i]}}</li>
+					</div>
+				</ul>
+			</div>
+		{% endfor %}
+
+		<script>
+		var coll = document.getElementsByClassName("collapsible");
+		var i;
+
+		for (i = 0; i < coll.length; i++) {
+		  coll[i].addEventListener("click", function() {
+			this.classList.toggle("active");
+			var content = this.nextElementSibling;
+			if (content.style.display === "block") {
+			  content.style.display = "none";
+			} else {
+			  content.style.display = "block";
+			}
+		  });
+		}
+		</script>
+	</body>
+</html>
