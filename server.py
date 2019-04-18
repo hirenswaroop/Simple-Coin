@@ -1,122 +1,110 @@
-from flask import Flask
-from flask import render_template
-from flask import request
-import blockchain
-import json
+import socket
 import threading
+import encryption
+import blockchain
+import requests
+import ledger
+import random
+import json
+import sys
+import time
 
-server = Flask(__name__)
-client = Flask(__name__)
+# Peer to peer server with attributes:
+# IP address, Port, Broadcast socket, and Listen socket
+class P2P():
+	def __init__(self):
+		self.ip_address = socket.gethostbyname(socket.gethostname())
+		self.port = random.randint(5002, 6000)
+		self.peer_broadcast = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+		self.peer_listen = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-creator_public = open("Creator_public.key", "r").read()
-creator_private = open("Creator_private.key", "r").read()
-creator = blockchain.Wallet('Creator', creator_public, creator_private)
+		self.peer_broadcast.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+		self.peer_broadcast.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
 
-miner_public = open("miner_public.key", "r").read()
-miner_private = open("miner_private.key", "r").read()
-miner = blockchain.Wallet('Miner', miner_public, miner_private)
+		self.peer_broadcast.bind(('', self.port))
+		self.peer_listen.bind(('', 5001))
 
-chain = blockchain.Chain(creator)
-transaction_list = list()
-verified_transactions = list()
-ledger = list()
+	# Broadcasts the json {coin:simplecoin} to all
+	# network interfaces on the network
+	def broadcast(self):
+		message = dict()
+		message['coin'] = 'simplecoin'
+		message = json.dumps(message)
+		time.sleep(1)
 
-@server.route('/transactions', methods = ['GET', 'POST'])
-def transactions():
-	if request.method == 'GET':
-		block_index = request.values.get('start')
+		while 1:
+			self.peer_broadcast.sendto(message.encode(), ('<broadcast>', 5001))
+			print('Message Broadcasted')
 
-		if block_index:
-			if int(block_index) == 0:
-				block_index = int(block_index) + 1
-			else:
-				block_index = int(block_index)
-			if block_index <= chain.getLatestBlock().index:
-				return render_template('transaction_list.html',
-					index = block_index,
-					length = chain.getLatestBlock().index,
-					chain = chain
-				)
-			else:
-				return render_template('error.html')
-		else:
-			return render_template('transaction_list.html',
-					index = 1,
-					length = chain.getLatestBlock().index,
-					chain = chain
-				)
+			# Waits 300 second in between broadcasts
+			time.sleep(300)
 
-	elif request.method == 'POST':
-		data = json.loads(request.get_data().decode('UTF-8'))
+	# Listens for broadcasts and sends peer data to
+	# sender of broadcast
+	def listen(self):
+		new_peer = ledger.Peer('{0}:{1}'.format(self.ip_address, self.port))
 
-		for i in range(len(data['transactions'])):
-			sender_public = data['transactions'][i]['sender']
-			receiver_public = data['transactions'][i]['receiver']
-			operation = data['transactions'][i]['operation']
-			timestamp = data['transactions'][i]['timestamp']
-			t_hash = data['transactions'][i]['t_hash']
+		while 1:
+			# Waits until a message is received
+			msg, addr = self.peer_listen.recvfrom(2048)
+			if addr[0] != self.ip_address:
+				message = json.loads(msg.decode())
 
-			sender = blockchain.Wallet('A', sender_public, "")
-			receiver = blockchain.Wallet('B', receiver_public, "")
+				# Verifies that the broadcast is correct
+				if message['coin'] == 'simplecoin':
+					print('Message From {0}\n'.format(addr))
+					data_dict = dict()
 
-			transaction = blockchain.Transaction(receiver, operation, sender, timestamp, t_hash)
-			transaction_list.append(transaction)
+					plain_nonce = random.randint(1, 1 << 24)
+					nonce = encryption.encryptWithKey(new_peer.wallet.private, str(plain_nonce))
+
+					data_dict['public_key'] = new_peer.wallet.public
+					data_dict['nonce'] = nonce
+					data_dict['host'] = new_peer.host
+
+					# Initializes new peer post request data
+					json_arg = {
+						'new_peer' : data_dict
+					}
+					payload = json.dumps(json_arg)
+
+					url = 'http://{0}:{1}/peers'.format(addr[0], addr[1])
+					peer_list_data = requests.post(url, json=payload)
+
+					if peer_list_data.text != '':
+						peer_list_data = json.loads(peer_list_data.text)
+						new_nonce = peer_list_data['nonce']
+						new_nonce = encryption.decryptWithKey(new_peer.wallet.private, new_nonce)
+
+						# Verifies nonce is correct
+						if int(new_nonce) == plain_nonce:
+							# Initializes peer list post request data
+							json_arg = {
+								'peer_list' : peer_list_data['peer_list']
+							}
+							payload = json.dumps(json_arg, indent=4, cls=blockchain.ChainEncoder)
+							post_req = requests.post(url, json=payload)
+						else:
+							print('Peers Not Registered: Invalid Nonce')
+					else:
+						print('Peer {0}:{1} Not Registered: Already in Ledger'.format(addr[0], addr[1]))
+
+	# Multithreads the broadcast and listen functions
+	def multithread(self):
+		# Initializes the broadcast thread
+		t_broadcast = threading.Thread(target=self.broadcast)
+
+		# Initializes the listen thread
+		t_listen = threading.Thread(target=self.listen)
+
+		# Sets the threads to background processes
+		t_broadcast.daemon = True
+		t_listen.daemon = True
+
+		# Starts the threads
+		t_broadcast.start()
+		t_listen.start()
 		
-		i = 1
-
-		for transaction in transaction_list:
-			if miner.public not in ledger:
-				ledger.append(miner.public)
-			if transaction.sender not in ledger:
-				ledger.append(transaction.sender)
-			if transaction.receiver not in ledger:
-				ledger.append(transaction.receiver)
-
-			amount = str(transaction.operation)
-
-			if(chain.verifyTransaction(transaction) and chain.checkBal(transaction.sender, verified_transactions, transaction)):
-				verified_transactions.append(transaction)
-
-			i += 1
-
-		if(len(verified_transactions) > 0):
-			l = len(verified_transactions)
-			chain.mine_block(verified_transactions, miner)
-
-		return "Number of Accepted Transaction: {0}\n".format(l)
-
-@server.route('/transactions/<int:ID>')
-def go_to(ID):
-	if ID <= chain.getLatestBlock().index:
-		return render_template('transaction_list.html',
-			index = ID,
-			length = ID,
-			chain = chain
-		)
-	else:
-		return render_template('error.html')
-
-@server.route('/peers', methods = ['GET', 'POST'])
-def peers():
-	if request.method == 'GET':
-		peer_mode = request.values.get('mode')
-
-		if peer_mode == 'json':
-			return open("peers.json", "r").read()
-		elif peer_mode == None:
-			return render_template('peers.html',
-					ledger = ledger,
-					length = len(ledger)
-				)
-
-	elif request.method == 'POST':
-		data = json.loads(request.get_data().decode('UTF-8'))
-
-		data['peer']
-
-@server.route('/heartbeat')
-def heartbeat():
-	return "alive", 200
-
-# Threading
-server.run(port = 8001)
+		# Makes the threads run forever
+		t_broadcast.join()
+		t_listen.join()

@@ -1,6 +1,5 @@
 # Author: Hiren Swaroop
 
-
 # Allow Python 2 to work up to the python version check
 from __future__ import print_function
 
@@ -18,6 +17,7 @@ if sys.version_info < (3,5):
 	print('Python version required: 3.5 or higher')
 	sys.exit(1)
 
+# Author: Mr. Sea
 class ChainEncoder(json.JSONEncoder):
 	def default(self, object):
 		if hasattr(object, 'toJSON'):
@@ -25,6 +25,7 @@ class ChainEncoder(json.JSONEncoder):
 		else:
 			return json.JSONEncoder.default(self, object)
 
+# Author: Mr. Sea
 class ChainDecoder(json.JSONDecoder):
 	def object_hook(self, obj):
 		if '__type__' not in obj:
@@ -74,6 +75,8 @@ class Transaction:
 
 		self.verify()
 
+	# Author: Mr. Sea
+	# Signs the transaction if it isn't signed and checks hash
 	def verify(self):
 		# Unsign the hash if needed 
 		unsigned_hash = self.t_hash
@@ -105,6 +108,7 @@ class Transaction:
 
 		return transaction.hexdigest()
 	
+	# Author: Mr. Sea
 	def toJSON(self):
 		json = {
 			"__type__": self.__class__.__name__,
@@ -113,6 +117,7 @@ class Transaction:
 
 		return json
 
+	# Author: Mr. Sea
 	@staticmethod
 	def parseJSON(json):
 
@@ -138,7 +143,7 @@ class Block:
 	# index, time, data, previous and next blocks,
 	# nonce, and the merkle root of the block
 	def __init__(self, data, prev_block):
-		self.index = 1
+		self.index = 0
 		self.timestamp = time.time()
 		self.data = data
 		self.currhash = None
@@ -189,6 +194,8 @@ class Block:
 				tempdata.append(self.hash_combine(h1, h2))
 		return tempdata[0]
 
+	# Author: Mr. Sea
+	# Verifies the block by verifying transactions and checking Merkle Root
 	def verify(self):
 		block_id = 'Block {0}'.format(self.index)
 
@@ -207,6 +214,7 @@ class Block:
 		return True
 
 
+	# Author: Mr. Sea
 	def toJSON(self):
 		jsonObject = {
 			"__type__": self.__class__.__name__
@@ -265,7 +273,7 @@ class Chain:
 	def verify(self):
 		block = copy.deepcopy(self.tail)
 
-		while block.index != 1:
+		while block.index != 0:
 			try:
 				block.verify()
 			except Exception as err:
@@ -365,6 +373,7 @@ class Wallet:
 		self.public = public + n
 		self.private = private + n
 	
+	# Author: Mr. Sea
 	def toJSON(self):
 		json = {
 			"__type__": self.__class__.__name__
@@ -372,6 +381,7 @@ class Wallet:
 		json.update(self.__dict__)
 		return json
 
+	# Author: Mr. Sea
 	def __repr__(self):
 		return json.dumps(self, cls=ChainEncoder)
 

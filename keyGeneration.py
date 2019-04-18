@@ -60,7 +60,7 @@ def base64encode(num):
 	temp = base64.b64encode(num.to_bytes(math.ceil(num.bit_length() / 8), 'little'))
 	return temp
 
-def genKeys(name):
+def genKeys():
 	p = getPrime(2048)
 	q = getPrime(2048)
 	n = p * q

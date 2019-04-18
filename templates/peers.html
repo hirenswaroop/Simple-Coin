@@ -32,11 +32,11 @@
 	</head>
 	<body>
 		{% for i in range(length) %}
-			<button class="collapsible"><h2>Peer {{i}}</h2></button>
+			<button class="collapsible"><h2>{{ledger[i].wallet.name}}</h2></button>
 			<div class="content">
 				<ul style="list-style-type:none;">
 					<div style="word-break: break-all;">
-						<li><b>Public Key:</b> {{ledger[i]}}</li>
+						<li><b>Public Key:</b> {{ledger[i].wallet.public}}</li>
 					</div>
 				</ul>
 			</div>

@@ -2,6 +2,17 @@
 	<head>
 		<title>Block</title>
 		<style>
+		.noncollapsible {
+		  background-color: #777;
+		  color: white;
+		  cursor: pointer;
+		  padding: 18px;
+		  width: 97.32%;
+		  border: none;
+		  text-align: left;
+		  outline: none;
+		  font-size: 15px;
+		}
 		.collapsible {
 		  background-color: #777;
 		  color: white;
@@ -35,6 +46,14 @@
 			<button class="collapsible"><h2>Block {{chain.getBlock(i).index}}</h2></button>
 			<div class="content">
 				<ul style="list-style-type:none;">
+					<div class="noncollapsible">
+						<h3>Timestamp: {{chain.getBlock(i).timestamp}}</h3>
+						<h3>Nonce: {{chain.getBlock(i).nonce}}</h3>
+						<h3>Hash of Current Block: {{chain.getBlock(i).currhash}}</h3>
+						<h3>Hash of Previous Block: {{chain.getBlock(i).prevhash}}</h3>
+						<h3>Merkle Root: {{chain.getBlock(i).merkle_root}}</h3>
+					</div>
+
 					{% for transaction in chain.getBlock(i).data %}
 						<button class="collapsible"><h3>Transaction {{loop.index}}</h3></button>
 						<div class="content">
